@@ -14,7 +14,7 @@ import kotlinx.coroutines.*
 /**
  * HttpSend pipeline interceptor function
  */
-typealias HttpSendInterceptor = suspend Sender.(HttpClientCall) -> HttpClientCall
+typealias HttpSendInterceptor = suspend Sender.(HttpClientCall, HttpRequestBuilder) -> HttpClientCall
 
 /**
  * This interface represents a request send pipeline interceptor chain
@@ -66,7 +66,7 @@ class HttpSend(
                     callChanged = false
 
                     passInterceptors@ for (interceptor in feature.interceptors) {
-                        val transformed = interceptor(sender, currentCall)
+                        val transformed = interceptor(sender, currentCall, context)
                         if (transformed === currentCall) continue@passInterceptors
 
                         currentCall = transformed

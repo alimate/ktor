@@ -5,6 +5,7 @@
 package io.ktor.client.engine.apache
 
 import io.ktor.client.engine.*
+import io.ktor.client.features.*
 import io.ktor.client.request.*
 import io.ktor.client.utils.*
 import kotlinx.coroutines.*
@@ -24,6 +25,8 @@ internal class ApacheEngine(override val config: ApacheEngineConfig) : HttpClien
             "ktor-apache-thread-%d"
         )
     }
+
+    override val supportedCapabilities = setOf(HttpTimeout)
 
     private val engine: CloseableHttpAsyncClient = prepareClient().apply { start() }
 

@@ -4,12 +4,14 @@
 
 package io.ktor.client.engine.apache
 
+import io.ktor.client.features.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.util.date.*
 import kotlinx.coroutines.*
 import org.apache.http.concurrent.*
 import org.apache.http.impl.nio.client.*
+import java.net.*
 import kotlin.coroutines.*
 
 internal suspend fun CloseableHttpAsyncClient.sendRequest(
@@ -34,7 +36,13 @@ internal suspend fun CloseableHttpAsyncClient.sendRequest(
 
     val callback = object : FutureCallback<Unit> {
         override fun failed(exception: Exception) {
-            callContext.cancel()
+            val mappedCause = when (exception) {
+                is ConnectException -> HttpConnectTimeoutException()
+                is SocketTimeoutException -> HttpSocketTimeoutException()
+                else -> exception
+            }
+
+            callContext.cancel(CancellationException("Failed to execute request", mappedCause))
             continuation.cancel(exception)
         }
 
@@ -46,5 +54,10 @@ internal suspend fun CloseableHttpAsyncClient.sendRequest(
         }
     }
 
-    execute(request, consumer, callback)
+    execute(request, consumer, callback).apply {
+        // We need to cancel Apache future if it's not needed anymore.
+        continuation.invokeOnCancellation {
+            cancel(true)
+        }
+    }
 }

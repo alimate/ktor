@@ -4,11 +4,13 @@
 
 package io.ktor.client.engine.okhttp
 
+import io.ktor.client.features.*
 import io.ktor.http.*
 import kotlinx.coroutines.*
 import okhttp3.*
 import okhttp3.Headers
 import java.io.*
+import java.net.*
 import kotlin.coroutines.*
 
 internal suspend fun OkHttpClient.execute(request: Request): Response = suspendCancellableCoroutine {
@@ -16,7 +18,21 @@ internal suspend fun OkHttpClient.execute(request: Request): Response = suspendC
     val callback = object : Callback {
 
         override fun onFailure(call: Call, cause: IOException) {
-            if (!call.isCanceled) it.resumeWithException(cause)
+            if (call.isCanceled) {
+                return
+            }
+
+            val mappedException = when (cause) {
+                is ConnectException -> HttpConnectTimeoutException()
+                is SocketTimeoutException -> if (cause.message?.contains("connect") == true) {
+                    HttpConnectTimeoutException()
+                } else {
+                    HttpSocketTimeoutException()
+                }
+                else -> cause
+            }
+
+            it.resumeWithException(mappedException)
         }
 
         override fun onResponse(call: Call, response: Response) {
